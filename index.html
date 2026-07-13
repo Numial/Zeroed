@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>ZEROED // Rutina Aim Lab</title>
+<meta name="description" content="Rastreador de racha diaria para tu rutina de Aim Lab">
+<meta name="theme-color" content="#0a0e13">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ZEROED">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<style>
+  :root{
+    --bg: #0a0e13;
+    --panel: #131a24;
+    --panel-soft: #0f151d;
+    --panel-line: #1c2731;
+    --phosphor: #47d8d7;
+    --phosphor-dim: #2a6f6e;
+    --cyan: #7ea6f2;
+    --amber: #e88a6f;
+    --text: #e9f2f1;
+    --text-dim: #5c7078;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh;}
+  body{
+    background-image:
+      radial-gradient(ellipse 600px 400px at 50% -10%, rgba(71,216,215,0.09), transparent 65%),
+      radial-gradient(ellipse 500px 400px at 90% 100%, rgba(126,166,242,0.06), transparent 60%);
+    background-attachment:fixed;
+  }
+  .app{max-width:480px; margin:0 auto; padding:30px 22px 64px;}
+
+  .topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:26px;}
+  .brand{display:flex; align-items:center; gap:10px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:20px; letter-spacing:0.5px; color:var(--text);}
+  .brand-mark{width:15px; height:15px; background:var(--phosphor); clip-path:polygon(35% 0, 100% 0, 100% 100%, 0 100%, 0 65%); flex-shrink:0; box-shadow:0 0 12px rgba(71,216,215,0.5);}
+  .brand span{color:var(--phosphor); font-weight:600;}
+  .rank{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-dim); text-align:right; line-height:1.5;}
+  .rank b{color:var(--cyan); font-size:12px; font-weight:500; display:block; letter-spacing:0.3px;}
+  .topbar-right{display:flex; align-items:center; gap:13px;}
+  .notif-btn{
+    background:var(--panel); border:1px solid var(--panel-line); color:var(--text-dim);
+    width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; padding:0; flex-shrink:0; transition:all 0.25s ease;
+    box-shadow:0 1px 2px rgba(0,0,0,0.25);
+  }
+  .notif-btn svg{width:16px; height:16px;}
+  .notif-btn.active{border-color:var(--phosphor-dim); color:var(--phosphor); box-shadow:0 0 12px rgba(71,216,215,0.2);}
+
+  /* RETICLE */
+  .reticle-wrap{position:relative; width:220px; height:220px; margin:12px auto 10px;}
+  svg{width:100%; height:100%; display:block;}
+  .ring-track{fill:none; stroke:var(--panel-line); stroke-width:2.5;}
+  .ring-fill{fill:none; stroke:url(#ringGradient); stroke-width:2.5; stroke-linecap:round; transition: stroke-dashoffset 0.6s cubic-bezier(0.4,0,0.2,1);}
+  .ring-fill.risk{stroke:var(--amber);}
+  .tick{stroke:var(--panel-line); stroke-width:1;}
+  .center-text{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  .streak-num{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:48px; color:var(--text); line-height:1; letter-spacing:-1px;}
+  .streak-label{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2.5px; color:var(--text-dim); margin-top:8px; text-transform:uppercase;}
+  .streak-num.risk{color:var(--amber);}
+
+  .week-dots{display:flex; justify-content:center; gap:11px; margin:16px 0 30px;}
+  .day-dot{display:flex; flex-direction:column; align-items:center; gap:7px;}
+  .dot{width:6px; height:6px; border-radius:50%; background:var(--panel-line); border:1px solid var(--panel-line); transition:all 0.2s;}
+  .dot.done{background:var(--phosphor); border-color:var(--phosphor); box-shadow:0 0 7px rgba(71,216,215,0.55);}
+  .dot.today{border-color:var(--cyan); width:7px; height:7px;}
+  .dlabel{font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-dim); letter-spacing:0.5px;}
+
+  .section-title{font-family:'Space Grotesk',sans-serif; font-weight:500; font-size:12px; letter-spacing:1.5px; color:var(--text-dim); margin:30px 0 12px; display:flex; justify-content:space-between; align-items:baseline; text-transform:uppercase;}
+  .section-title .count{color:var(--phosphor); font-family:'JetBrains Mono',monospace; letter-spacing:0; font-size:12px;}
+
+  .drill{
+    display:flex; align-items:center; gap:13px;
+    background:linear-gradient(180deg, var(--panel), var(--panel-soft));
+    border:1px solid var(--panel-line); border-radius:13px;
+    padding:14px 16px; margin-bottom:9px; cursor:pointer; user-select:none;
+    box-shadow:0 2px 6px rgba(0,0,0,0.18);
+    transition: border-color 0.25s ease, background 0.25s ease, transform 0.15s ease;
+  }
+  .drill.done{border-color:var(--phosphor-dim); background:linear-gradient(180deg, #142523, #0f1d1b);}
+  .drill:active{transform:scale(0.985);}
+  .checkbox{
+    width:21px; height:21px; border-radius:7px; border:1.5px solid var(--panel-line); background:var(--panel-soft); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; transition:all 0.2s ease;
+  }
+  .drill.done .checkbox{background:var(--phosphor); border-color:var(--phosphor);}
+  .checkbox svg{width:12px; height:12px; opacity:0; transition:opacity 0.15s;}
+  .drill.done .checkbox svg{opacity:1;}
+  .drill-name{flex:1; font-size:14.5px; font-weight:450; letter-spacing:0.1px;}
+  .drill.done .drill-name{color:var(--text-dim); text-decoration:line-through; text-decoration-color:var(--phosphor-dim);}
+  .drill-xp{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--cyan); opacity:0.85;}
+  .drill.done .drill-xp{color:var(--phosphor-dim);}
+  .remove-btn{background:none; border:none; color:var(--text-dim); font-size:15px; padding:2px 4px; cursor:pointer; line-height:1; opacity:0.6; transition:opacity 0.2s;}
+  .remove-btn:hover{opacity:1;}
+
+  .add-row{display:flex; gap:9px; margin-top:8px;}
+  .add-row input{
+    flex:1; background:var(--panel-soft); border:1px solid var(--panel-line); border-radius:13px;
+    padding:12px 15px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px;
+  }
+  .add-row input:focus{outline:none; border-color:var(--phosphor-dim);}
+  .add-row input::placeholder{color:var(--text-dim);}
+  .add-row button{
+    background:var(--phosphor); border:none; color:#0a0e13; border-radius:13px;
+    padding:0 20px; font-family:'Space Grotesk',sans-serif; font-weight:600; cursor:pointer; font-size:17px;
+    box-shadow:0 2px 10px rgba(71,216,215,0.25);
+  }
+
+  .footer-note{margin-top:32px; font-size:11px; color:var(--text-dim); text-align:center; line-height:1.7; font-family:'JetBrains Mono',monospace; letter-spacing:0.2px;}
+  .footer-note b{color:var(--cyan); font-weight:500;}
+
+  .toast{
+    position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px);
+    background:var(--panel); border:1px solid var(--phosphor-dim); color:var(--phosphor);
+    font-family:'Space Grotesk',sans-serif; font-weight:600; letter-spacing:0.3px; font-size:13.5px;
+    padding:13px 24px; border-radius:13px; opacity:0; transition:all 0.4s cubic-bezier(0.4,0,0.2,1); pointer-events:none;
+    box-shadow:0 8px 24px rgba(0,0,0,0.35), 0 0 20px rgba(71,216,215,0.15); white-space:nowrap;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><div class="brand-mark"></div>ZEROED<span>.</span></div>
+    <div class="topbar-right">
+      <button class="notif-btn" id="notifBtn" title="Activar recordatorio diario">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+      </button>
+      <div class="rank" id="rankBox"><b id="rankTitle">—</b><span id="xpText">0 XP</span></div>
+    </div>
+  </div>
+
+  <div class="reticle-wrap">
+    <svg viewBox="0 0 230 230">
+      <defs>
+        <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#47d8d7"></stop>
+          <stop offset="100%" stop-color="#7ea6f2"></stop>
+        </linearGradient>
+      </defs>
+      <circle class="ring-track" cx="115" cy="115" r="95"></circle>
+      <circle id="ringFill" class="ring-fill" cx="115" cy="115" r="95" transform="rotate(-90 115 115)"></circle>
+      <g id="ticks"></g>
+      <line class="tick" x1="115" y1="8" x2="115" y2="20" stroke-width="2"></line>
+      <line class="tick" x1="115" y1="210" x2="115" y2="222" stroke-width="2"></line>
+      <line class="tick" x1="8" y1="115" x2="20" y2="115" stroke-width="2"></line>
+      <line class="tick" x1="210" y1="115" x2="222" y2="115" stroke-width="2"></line>
+    </svg>
+    <div class="center-text">
+      <div class="streak-num" id="streakNum">0</div>
+      <div class="streak-label">DÍAS SEGUIDOS</div>
+    </div>
+  </div>
+
+  <div class="week-dots" id="weekDots"></div>
+
+  <div class="section-title">RUTINA DE HOY <span class="count" id="progressCount">0/0</span></div>
+  <div id="drillList"></div>
+
+  <div class="add-row">
+    <input type="text" id="newDrillInput" placeholder="añadir ejercicio (ej. Pentakill)" maxlength="40">
+    <button id="addDrillBtn">+</button>
+  </div>
+
+  <div class="footer-note">Completa todos los ejercicios para sumar un día a la racha.<br>Mejor racha: <b id="bestStreak">0</b> · Nivel: <b id="rankTitle2">—</b></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'aimlab-rutina-state';
+const RING_R = 95, RING_C = 2 * Math.PI * RING_R;
+
+const RANKS = [
+  {min:0, title:'RECLUTA'},
+  {min:150, title:'CADETE'},
+  {min:400, title:'TIRADOR'},
+  {min:900, title:'TIRADOR DE ÉLITE'},
+  {min:1800, title:'FRANCOTIRADOR'},
+  {min:3200, title:'LEYENDA'},
+];
+
+function buildDefaultRoutine(){
+  const routine = [];
+  for(let i = 1; i <= 10; i++){
+    routine.push({id:'multishot-'+i, name:'Multishot Ultimate #'+i, xp:3});
+  }
+  for(let i = 1; i <= 3; i++){
+    routine.push({id:'gridshot-'+i, name:'Gridshot Speed #'+i, xp:5});
+  }
+  return routine;
+}
+const DEFAULT_ROUTINE = buildDefaultRoutine();
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function dateStrOffset(offset){
+  const d = new Date();
+  d.setDate(d.getDate()+offset);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function yesterdayStr(){ return dateStrOffset(-1); }
+
+let state = null;
+
+function defaultState(){
+  return {
+    streak: 0,
+    bestStreak: 0,
+    totalXP: 0,
+    lastCompletedDate: null,
+    history: {},
+    todayDate: todayStr(),
+    todayDone: [],
+    routine: DEFAULT_ROUTINE.slice()
+  };
+}
+
+async function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    state = raw ? JSON.parse(raw) : defaultState();
+  } catch(e){
+    state = defaultState();
+  }
+  reconcileDay();
+  render();
+}
+
+async function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch(e){
+    console.error('No se pudo guardar', e);
+  }
+}
+
+function reconcileDay(){
+  const today = todayStr();
+  if(state.todayDate !== today){
+    // day changed — check if streak should break
+    const y = yesterdayStr();
+    if(state.lastCompletedDate !== y && state.lastCompletedDate !== today){
+      state.streak = 0;
+    }
+    state.todayDate = today;
+    state.todayDone = [];
+  } else {
+    // same day load — still verify streak wasn't broken by a gap before today somehow
+  }
+}
+
+function getRank(xp){
+  let current = RANKS[0];
+  for(const r of RANKS){ if(xp >= r.min) current = r; }
+  return current.title;
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function render(){
+  const done = state.todayDone.length;
+  const total = state.routine.length;
+  const pct = total > 0 ? done/total : 0;
+
+  document.getElementById('progressCount').textContent = `${done}/${total}`;
+  document.getElementById('streakNum').textContent = state.streak;
+  document.getElementById('bestStreak').textContent = state.bestStreak;
+  const rankTitle = getRank(state.totalXP);
+  document.getElementById('rankTitle').textContent = rankTitle;
+  document.getElementById('rankTitle2').textContent = rankTitle;
+  document.getElementById('xpText').textContent = state.totalXP + ' XP';
+
+  const ring = document.getElementById('ringFill');
+  const offset = RING_C * (1 - pct);
+  ring.setAttribute('stroke-dasharray', RING_C);
+  ring.setAttribute('stroke-dashoffset', offset);
+  const streakNumEl = document.getElementById('streakNum');
+  if(pct < 1 && new Date().getHours() >= 20){
+    ring.classList.add('risk');
+    streakNumEl.classList.add('risk');
+  } else {
+    ring.classList.remove('risk');
+    streakNumEl.classList.remove('risk');
+  }
+
+  // week dots — fixed Monday→Sunday of the current calendar week
+  const weekDots = document.getElementById('weekDots');
+  weekDots.innerHTML = '';
+  const dayLabels = ['L','M','X','J','V','S','D'];
+  const todayDate = new Date(state.todayDate+'T00:00:00');
+  const dow = todayDate.getDay(); // 0=Sun..6=Sat
+  const mondayOffset = (dow === 0) ? -6 : 1 - dow;
+  for(let i = 0; i < 7; i++){
+    const ds = dateStrOffset(mondayOffset + i);
+    const wrap = document.createElement('div');
+    wrap.className = 'day-dot';
+    const dot = document.createElement('div');
+    const isToday = ds === state.todayDate;
+    const isCompleted = state.history[ds] === true;
+    dot.className = 'dot' + (isCompleted ? ' done' : '') + (isToday ? ' today' : '');
+    const label = document.createElement('div');
+    label.className = 'dlabel';
+    label.textContent = dayLabels[i];
+    wrap.appendChild(dot);
+    wrap.appendChild(label);
+    weekDots.appendChild(wrap);
+  }
+
+  // drill list
+  const list = document.getElementById('drillList');
+  list.innerHTML = '';
+  state.routine.forEach(drill => {
+    const isDone = state.todayDone.includes(drill.id);
+    const row = document.createElement('div');
+    row.className = 'drill' + (isDone ? ' done' : '');
+    row.innerHTML = `
+      <div class="checkbox">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0a0e13" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <div class="drill-name">${drill.name}</div>
+      <div class="drill-xp">+${drill.xp}</div>
+      <button class="remove-btn" data-id="${drill.id}">✕</button>
+    `;
+    row.addEventListener('click', (e) => {
+      if(e.target.classList.contains('remove-btn')) return;
+      toggleDrill(drill.id);
+    });
+    row.querySelector('.remove-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeDrill(drill.id);
+    });
+    list.appendChild(row);
+  });
+}
+
+function toggleDrill(id){
+  const idx = state.todayDone.indexOf(id);
+  if(idx >= 0){
+    state.todayDone.splice(idx, 1);
+  } else {
+    state.todayDone.push(id);
+  }
+  checkCompletion();
+  saveState();
+  render();
+}
+
+function checkCompletion(){
+  const today = state.todayDate;
+  const allDone = state.routine.length > 0 && state.todayDone.length === state.routine.length;
+  const alreadyCounted = state.history[today] === true;
+
+  if(allDone && !alreadyCounted){
+    state.history[today] = true;
+    state.streak += 1;
+    if(state.streak > state.bestStreak) state.bestStreak = state.streak;
+    state.lastCompletedDate = today;
+    const xpGained = state.routine.reduce((s,d)=>s+d.xp, 0);
+    state.totalXP += xpGained;
+    showToast(`Racha +1 · ${xpGained} XP ganados`);
+  } else if(!allDone && alreadyCounted){
+    // user unchecked something after completing — roll back
+    delete state.history[today];
+    state.streak = Math.max(0, state.streak - 1);
+    const xpGained = state.routine.reduce((s,d)=>s+d.xp, 0);
+    state.totalXP = Math.max(0, state.totalXP - xpGained);
+    if(state.lastCompletedDate === today) state.lastCompletedDate = null;
+  }
+
+  // prune old history (keep last 30 days)
+  const cutoff = dateStrOffset(-30);
+  Object.keys(state.history).forEach(d => { if(d < cutoff) delete state.history[d]; });
+}
+
+function removeDrill(id){
+  state.routine = state.routine.filter(d => d.id !== id);
+  state.todayDone = state.todayDone.filter(d => d !== id);
+  saveState();
+  render();
+}
+
+document.getElementById('addDrillBtn').addEventListener('click', addDrill);
+document.getElementById('newDrillInput').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') addDrill();
+});
+
+function addDrill(){
+  const input = document.getElementById('newDrillInput');
+  const name = input.value.trim();
+  if(!name) return;
+  const id = 'custom-' + Date.now();
+  state.routine.push({id, name, xp: 15});
+  input.value = '';
+  saveState();
+  render();
+}
+
+loadState();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.error('SW error:', err));
+  });
+}
+
+/* ===== OneSignal — recordatorio push real ===== *
+ * 1. Crea cuenta gratis en https://onesignal.com y una app "Web Push"
+ *    apuntando al dominio donde publiques esta carpeta.
+ * 2. Copia el "OneSignal App ID" y pégalo abajo, sustituyendo el texto
+ *    ONESIGNAL_APP_ID_AQUI.
+ * 3. En su dashboard, ve a Messages > Journeys y crea un Journey con
+ *    disparador diario a la hora que quieras — así se manda el aviso
+ *    aunque el móvil lleve horas sin abrir la app.
+ */
+const ONESIGNAL_APP_ID = 'ONESIGNAL_APP_ID_AQUI';
+
+if(ONESIGNAL_APP_ID === 'ONESIGNAL_APP_ID_AQUI'){
+  document.getElementById('notifBtn').addEventListener('click', () => {
+    showToast('Configura OneSignal — mira el README');
+  });
+}
+
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+OneSignalDeferred.push(async function(OneSignal){
+  if(ONESIGNAL_APP_ID === 'ONESIGNAL_APP_ID_AQUI') return; // aún no configurado
+
+  await OneSignal.init({
+    appId: ONESIGNAL_APP_ID,
+    serviceWorkerParam: { scope: '/' },
+    serviceWorkerPath: 'sw.js'
+  });
+
+  const notifBtn = document.getElementById('notifBtn');
+
+  function refreshNotifBtn(){
+    const enabled = OneSignal.Notifications.permission === true;
+    notifBtn.classList.toggle('active', enabled);
+    notifBtn.title = enabled ? 'Recordatorio activado' : 'Activar recordatorio diario';
+  }
+  refreshNotifBtn();
+  OneSignal.Notifications.addEventListener('permissionChange', refreshNotifBtn);
+
+  notifBtn.addEventListener('click', async () => {
+    if(OneSignal.Notifications.permission === true){
+      showToast('Ya tienes los avisos activados');
+      return;
+    }
+    await OneSignal.Notifications.requestPermission();
+    refreshNotifBtn();
+  });
+});
+
+
+</script>
+</body>
+</html>
